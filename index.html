@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Experimento Pavloviano (Web – TEST RÁPIDO)</title>
+  <style>
+    body { background:#fff; color:#000; margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif; }
+    .center { display:flex; align-items:center; justify-content:center; }
+    .screen { width:100vw; height:100vh; }
+    .cue { width: 400px; height: 400px; border: 2px solid #000; border-radius:6px; }
+    .fix { font-size: 72px; color:#000; }
+    .btn { padding:14px 18px; font-size:18px; margin:6px; cursor:pointer; background:#000; color:#fff; border:none; border-radius:6px; }
+    .row { display:flex; gap:16px; justify-content:center; align-items:center; flex-wrap:wrap; }
+    .col { display:flex; flex-direction:column; align-items:center; }
+    .circle-btn { width:120px; height:120px; border-radius:60px; border:3px solid #000; display:flex; align-items:center; justify-content:center; font-size:32px; cursor:pointer; user-select:none; color:#000; background:#fff; }
+    /* feedback visual de pulsación */
+    .circle-btn { transition: transform .04s ease, background .12s ease, color .12s ease; }
+    .circle-btn.active, .circle-btn:active { background:#000; color:#fff; transform: scale(0.98); }
+
+    /* imágenes sin borde */
+    img.reward { max-width: 500px; max-height: 500px; border:none; border-radius:0; }
+    .note { opacity:.9; font-size:18px; color:#000; }
+    .small { font-size:14px; opacity:.8; color:#000; }
+    a.download { color:#00f; }
+
+    /* UI de sliders */
+    .slider-wrap { width: min(820px, 92vw); display:flex; flex-direction:column; align-items:center; gap:16px; }
+    .slider-labels { display:flex; justify-content:space-between; width:100%; font-size:14px; opacity:.9; }
+    .slider-value { font-size:22px; font-weight:600; }
+    input[type="range"] { width:100%; appearance: none; height: 6px; border-radius: 999px; background: #e5e7eb; outline: none; }
+    input[type="range"]::-webkit-slider-thumb { appearance: none; width: 28px; height: 28px; border-radius: 50%; background: #000; cursor: pointer; }
+    input[type="range"]::-moz-range-thumb { width: 28px; height: 28px; border-radius: 50%; background: #000; cursor: pointer; border: none; }
+  </style>
+</head>
+<body>
+<div id="root" class="screen center"></div>
+<script>
+//------------------------------------------------------
+// Utilidades sin dependencias externas
+//------------------------------------------------------
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+const nowISO = () => new Date().toISOString().split('.')[0];
+function shuffle(arr){ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } return arr; }
+function choice(list){ return list[Math.floor(Math.random()*list.length)]; }
+function parseCSV(text){
+  const lines = text.replace(/\r/g,'').split('\n').filter(l=>l.trim().length>0);
+  if(!lines.length) return [];
+  const headers = lines[0].split(',').map(h=>h.trim());
+  return lines.slice(1).map(line=>{
+    const vals = line.split(',');
+    const o={}; headers.forEach((h,i)=> o[h]= (vals[i]||'').trim()); return o;
+  });
+}
+
+//------------------------------------------------------
+// Estado global
+//------------------------------------------------------
+let RUT = '';
+let CONDICION = 'Cigarro';
+let COMIDA = 'KUKY';
+let foodKey = 'KUKY';
+const ts = new Date().toISOString().replace(/[:T]/g,'-').split('.')[0];
+const pav_rows = [], rate_rows = [], instr_rows = [], pit_rows = [], deval_rows = [], pitpost_rows = [];
+
+const IMG_DIR = 'img';
+const IMG_MAP = { 'cigarro':'cigarro.png','cerveza':'cerveza.png','clip':'clip.png','KUKY':'KUKY-CLASICA-GALLETA.png','Ramitas':'Ramitas.png','Lays':'lays__71941.png','M&M':'m_mcafe1.png','Selz':'Selz.png' };
+async function resolveImage(basename){
+  const name = basename.split('.')[0];
+  const exts = ['', '.png','.jpg','.jpeg','.webp','.PNG','.JPG','.JPEG','.WEBP'];
+  for (const ext of exts){
+    const path = `${IMG_DIR}/${name}${ext||''}`;
+    try { const res = await fetch(path, {method:'HEAD', cache:'no-store'}); if(res.ok) return path; } catch(e){}
+  }
+  return null;
+}
+
+//------------------------------------------------------
+// UI helpers
+//------------------------------------------------------
+function html(h){ document.getElementById('root').innerHTML=h; }
+function buttonOnce(id){ return new Promise(r=>{ const b=document.getElementById(id); if(b) b.onclick=()=>r(); }); }
+
+// Slider genérico con textos dinámicos
+function renderSlider({title, subtitle='', min=1, max=10, start=1, labels=[], confirmText='Confirmar'}) {
+  const id = `rng_${Math.random().toString(36).slice(2)}`;
+  const labId = `lbl_${Math.random().toString(36).slice(2)}`;
+  html(`
+    <div class="screen center">
+      <div class="slider-wrap">
+        <div style="text-align:center">
+          <div style="font-size:24px">${title}</div>
+          ${subtitle?`<div class="small" style="margin-top:8px">${subtitle}</div>`:''}
+        </div>
+        <div class="slider-value" id="${labId}"></div>
+        <input type="range" id="${id}" min="${min}" max="${max}" step="1" value="${start}">
+        <div class="slider-labels">
+          <span>${labels[0]||min}</span>
+          <span>${labels[labels.length-1]||max}</span>
+        </div>
+        <button class="btn" id="ok">${confirmText}</button>
+      </div>
+    </div>
+  `);
+  const rng = document.getElementById(id);
+  const lbl = document.getElementById(labId);
+
+  function textFor(v){
+    const idx = Math.max(min, Math.min(max, Number(v))) - min;
+    return labels[idx] ?? String(v);
+  }
+  function update(){ lbl.textContent = `${rng.value} — ${textFor(rng.value)}`; }
+  update();
+  rng.oninput = update;
+
+  return new Promise(resolve=>{
+    const t0 = performance.now();
+    document.getElementById('ok').onclick = ()=>{
+      const rt = (performance.now()-t0)/1000;
+      resolve({value:Number(rng.value), rt:rt});
+    };
+  });
+}
+
+//------------------------------------------------------
+// RUT + participantes.csv
+//------------------------------------------------------
+// Normaliza RUT: sin puntos, sin espacios; guion opcional.
+function normalizeRut(s){
+  return (s||'').toUpperCase().replace(/\./g,'').replace(/\s+/g,'');
+}
+
+function uiRutPrompt(){
+  html(`<div class="screen center" style="flex-direction:column; gap:16px">
+    <h2>Ingrese su RUT</h2>
+    <input id="rut" placeholder="Ej: 12345678-9" style="padding:12px; font-size:18px; width:280px; text-align:center" />
+    <div class="small">Ingresa tu RUT <b>sin puntos</b> y con guión.</div>
+    <button id="go" class="btn">Comenzar</button>
+  </div>`);
+  return new Promise(resolve=>{
+    document.getElementById('go').onclick = ()=>{
+      const raw = (document.getElementById('rut').value||'').trim();
+      const norm = normalizeRut(raw);
+      resolve(norm || String(Math.floor(1000+Math.random()*9000)));
+    };
+  });
+}
+
+async function loadParticipantes(){
+  try{
+    const res = await fetch('participantes.csv', {cache:'no-store'});
+    if(!res.ok) throw new Error('No existe participantes.csv');
+    const text = await res.text();
+    const data = parseCSV(text);
+    const row = data.find(r => normalizeRut(r.RUT||'') === RUT);
+    if(row){ CONDICION = (row.Condicion||CONDICION).trim(); COMIDA = (row.Comida||COMIDA).trim(); }
+    else { console.warn(`[WARN] RUT ${RUT} no encontrado; usando por defecto.`); }
+  }catch(e){ console.warn('No se pudo leer participantes.csv. Usando por defecto.', e); }
+  const keys = Object.keys(IMG_MAP);
+  foodKey = keys.find(k => COMIDA.toLowerCase().includes(k.toLowerCase())) || 'KUKY';
+}
+
+//------------------------------------------------------
+// Fases
+//------------------------------------------------------
+
+// Instrucción previa a Pavloviana
+async function instruccionesPavloviana(){
+  html(`<div class="screen center" style="flex-direction:column; gap:16px; text-align:center">
+    <div style="font-size:22px; max-width:900px">
+      En esta parte, verás cuadrados de diferentes colores en la pantalla.
+      Cada cuadrado está asociado con una consecuencia que aparecerá después.
+      Algunas veces recibirás una recompensa y otras veces no pasará nada.
+      <br><br><b>Solo observa y presta atención. No aprietes ningún botón durante esta fase.</b>
+    </div>
+    <button class="btn" id="cont">Tocar para comenzar</button>
+  </div>`);
+  await buttonOnce('cont');
+}
+
+async function fasePavloviana(){
+  // TEST: 1 ensayo por tipo (total 4) + tiempos cortos
+  const trial_types = shuffle([
+    ...Array(1).fill('droga'),
+    ...Array(1).fill('comida'),
+    ...Array(1).fill('clip'),
+    ...Array(1).fill('neutro'),
+  ]);
+  for(let i=0;i<trial_types.length;i++){
+    const tipo = trial_types[i];
+    const iti = choice([1,2]); // ITI corto
+    let cue_color, ref_basename=null;
+    if (tipo==='droga'){ cue_color='blue'; ref_basename = (CONDICION.toLowerCase().includes('cigarro')? IMG_MAP.cigarro : IMG_MAP.cerveza); }
+    else if (tipo==='comida'){ cue_color='yellow'; ref_basename = IMG_MAP[foodKey]; }
+    else if (tipo==='clip'){ cue_color='red'; ref_basename = IMG_MAP.clip; }
+    else { cue_color='green'; ref_basename = null; }
+
+    const tCueOn = performance.now()/1000;
+    html(`<div class="screen center"><div class="cue" style="background:${cue_color}"></div></div>`);
+    await sleep(1000); // 1 s de EC
+
+    const tImageOn = performance.now()/1000;
+    if(ref_basename){
+      const path = await resolveImage(ref_basename);
+      html(`<div class="screen center">${path?`<img class='reward' src='${path}'/>`:''}</div>`);
+      await sleep(300); // 0.3 s de refuerzo
+    } else {
+      html(`<div class="screen center"></div>`);
+      await sleep(300);
+    }
+    const tFixOn = performance.now()/1000;
+    html(`<div class="screen center"><div class="fix">+</div></div>`);
+    await sleep(iti*1000); // 1–2 s ITI
+    const tEnd = performance.now()/1000;
+
+    pav_rows.push({ rut:RUT, trialIndex:i+1, tipo, cue_color, refuerzo_file: ref_basename? ref_basename.split('/').pop() :'None', iti, t_cue_on:tCueOn.toFixed(4), t_image_on:tImageOn.toFixed(4), t_fix_on:tFixOn.toFixed(4), t_trial_end:tEnd.toFixed(4) });
+  }
+}
+
+// ------- Rating de colores (SLIDERS 1–5) -------
+async function faseRatingColores(){
+  html(`<div class="screen center" style="flex-direction:column; gap:16px; text-align:center">
+    <div style="font-size:24px">Ahora evalúa cómo te sientes con respecto a cada color usando el control deslizante.</div>
+    <button class="btn" id="cont">Tocar para continuar</button>
+  </div>`); await buttonOnce('cont');
+
+  const rateColors = [['blue','azul'],['yellow','amarillo'],['red','rojo'],['green','verde']];
+  const labels5 = [
+    "Me desagrada mucho", "Me desagrada", "Ni me agrada ni me desagrada",
+    "Me agrada", "Me agrada mucho"
+  ];
+  for (const [color,nombre] of rateColors){
+    const {value, rt} = await renderSlider({
+      title:`¿Cómo te sientes con respecto al cuadrado ${nombre}?`,
+      subtitle:"1 = Me desagrada mucho · 5 = Me agrada mucho",
+      min:1, max:5, start:3, labels:labels5, confirmText:"Confirmar"
+    });
+    rate_rows.push({rut:RUT,color,rating:value,rt:rt.toFixed(4)});
+    html(`<div class="screen center"><div>Respuesta registrada.</div></div>`); await sleep(1000);
+  }
+}
+
+// ------- Fase Instrumental (SIN EC) -------
+async function faseInstrumental(){
+  html(`<div class="screen center" style="flex-direction:column; gap:16px; text-align:center">
+    <div style="font-size:22px; max-width:900px">
+      Ahora se te pedirá apretar distintos botones que aparecen en la pantalla.<br>
+      Debes descubrir qué tecla presionar para obtener un punto de recompensa específico.<br>
+      Puedes presionar la tecla correcta tantas veces como quieras, pero no durante la aparición de la recompensa.
+    </div>
+    <button class="btn" id="cont">Toca para comenzar</button>
+  </div>`); 
+  await buttonOnce('cont');
+
+  const n_trials = 6;   // TEST: 6 ensayos totales
+  const prob = 0.5;
+
+  for(let t=0; t<n_trials; t++){
+    html(`<div class="screen center"><div class="fix">+</div></div>`); 
+    await sleep(1000); // fijación corta
+
+    await new Promise(resolve=>{
+      const start=performance.now();
+      html(`<div class="screen center" style="flex-direction:column; gap:18px; text-align:center">
+        <div style="font-size:24px">Presiona un botón en la pantalla</div>
+        <div class="row">
+          <div class="circle-btn" id="r1">R1</div>
+          <div class="circle-btn" id="r2">R2</div>
+          <div class="circle-btn" id="r3">R3</div>
+        </div>
+      </div>`);
+
+      const flash = (el)=>{ el.classList.add('active'); setTimeout(()=>el.classList.remove('active'), 120); };
+
+      const decide = async (chosen)=>{
+        const rt=(performance.now()-start)/1000;
+        const map = {1:'droga', 2:'comida', 3:'clip'};
+        const reward_type = map[chosen];
+        const reward = Math.random() < prob;
+        const msg = reward
+          ? (reward_type==='droga'?`¡Ganaste un punto de ${CONDICION.toLowerCase()}!`
+            : reward_type==='comida'?`¡Ganaste un punto de ${COMIDA}!`
+            : '¡Ganaste un punto de clip!')
+          : 'No ganaste nada.';
+
+        html(`<div class="screen center"><div style="font-size:28px">${msg}</div></div>`);
+        await sleep(1000); // feedback breve
+
+        instr_rows.push({
+          rut:RUT, trialIndex:t+1, 
+          stim_color:'', reward_type_expected:reward_type,
+          button_pressed:`R${chosen}`, rewarded:reward?1:0, reward_type,
+          rt:rt.toFixed(4), eficacia:''
+        });
+        resolve();
+      };
+
+      ['r1','r2','r3'].forEach((id,i)=>{
+        const el = document.getElementById(id);
+        el.onpointerdown = ()=>flash(el);
+        el.onclick = ()=>decide(i+1);
+      });
+    });
+  }
+
+  // Eficacia (dejamos igual, con confirmaciones rápidas)
+  html(`<div class="screen center" style="flex-direction:column; gap:16px; text-align:center">
+    <div style="font-size:22px; max-width:1000px">Califica qué tan efectiva fue cada tecla.</div>
+    <button class="btn" id="go">Tocar para comenzar</button>
+  </div>`); await buttonOnce('go');
+
+  const items=[
+    {label:`R1 (punto de ${CONDICION})`},
+    {label:`R2 (punto de ${COMIDA})`},
+    {label:`R3 (punto de clip)`}
+  ];
+  const labels10ef = [
+    "Nada efectiva","Muy poco efectiva","Poco efectiva","Algo efectiva","Efectiva moderada",
+    "Bastante efectiva","Muy efectiva","Muy muy efectiva","Casi perfecta","Perfecta"
+  ];
+  for(const it of items){
+    const {value, rt} = await renderSlider({
+      title:`¿Qué tan efectiva fue ${it.label}?`,
+      subtitle:"1 = Nada efectiva · 10 = Perfecta",
+      min:1, max:10, start:5, labels:labels10ef, confirmText:"Confirmar"
+    });
+    instr_rows.push({
+      rut:RUT, trialIndex:'', stim_color:'', reward_type_expected:'',
+      button_pressed:it.label, rewarded:'', reward_type:'', rt:rt.toFixed(4), eficacia:value
+    });
+    html(`<div class="screen center"><div>Respuesta registrada.</div></div>`); await sleep(1000);
+  }
+}
+
+// ------- PIT y PIT Post (TEST: 1 por S1–S3 => 3 ensayos por fase) -------
+async function fasePIT(reps, collector){
+  html(`<div class="screen center" style="flex-direction:column; gap:16px; text-align:center">
+    <div style="font-size:22px; max-width:1000px">
+      A continuación se te presentarán los cuadrados de colores que viste anteriormente.<br><br>
+      Primero, verás un punto de fijación (+) y después verás, al azar, un cuadrado de color.
+      Cuando aparezca, puedes apretar el botón <b>R1 o R3</b> tantas veces como quieras.
+      <b>Solo podrás apretarlos por 2 segundos desde tu primera pulsación</b>, así que piensa rápido.
+      <br><br><i>Recuerda:</i> no se entregará retroalimentación visible y, cuando aparezca <b>“Recalibrando”</b>, no debes presionar nada.
+    </div>
+    <button class="btn" id="go">Empezar</button>
+  </div>`); 
+  await buttonOnce('go');
+
+  const seq = shuffle([ ...Array(reps).fill('S1'), ...Array(reps).fill('S2'), ...Array(reps).fill('S3') ]);
+  for(let i=0;i<seq.length;i++){
+    html(`<div class="screen center"><div class="fix">+</div></div>`);
+    await sleep(choice([1,2])*1000); // fijación breve 1–2 s
+
+    const stim = seq[i];
+    const color = stim==='S1' ? 'blue' : stim==='S2' ? 'yellow' : 'red';
+
+    await new Promise(async resolve=>{
+      const start = performance.now();
+      let r1=0, r3=0, firstRT=null, firstBtn=null;
+      let windowStarted=false, windowTimer=null, maxTimer=null;
+
+      html(`<div class="screen center" style="flex-direction:column; gap:18px; text-align:center">
+        <div class="cue" style="background:${color}"></div>
+        <div class="row">
+          <div class="circle-btn" id="r1">R1</div>
+          <div class="circle-btn" id="r3">R3</div>
+        </div>
+        <div class="small">La ventana de conteo dura 2 s desde tu primera pulsación.</div>
+      </div>`);
+
+      const flash = (el)=>{ el.classList.add('active'); setTimeout(()=>el.classList.remove('active'), 120); };
+
+      const finish = ()=>{
+        clearTimeout(maxTimer);
+        clearTimeout(windowTimer);
+        const el1 = document.getElementById('r1');
+        const el3 = document.getElementById('r3');
+        if (el1) {
+          el1.removeEventListener('pointerdown', onR1);
+          el1.removeEventListener('click', onR1Click);
+        }
+        if (el3) {
+          el3.removeEventListener('pointerdown', onR3);
+          el3.removeEventListener('click', onR3Click);
+        }
+        collector.push({
+          rut:RUT, trial:i+1, stim,
+          EC_type: stim==='S1'?'Droga':stim==='S2'?'Comida':'Clip',
+          R1:r1, R3:r3,
+          rt:firstRT ? firstRT.toFixed(4) : '',
+          first_button:firstBtn || '',
+          timestamp:nowISO()
+        });
+        resolve();
+      };
+
+      const onFirst = (btn)=>{
+        if (!windowStarted) {
+          windowStarted = true;
+          firstRT = (performance.now() - start)/1000;
+          firstBtn = btn;
+          clearTimeout(maxTimer);            // Cancela el "no response cap"
+          windowTimer = setTimeout(finish, 2000); // TEST: 2 s desde la primera pulsación
+        }
+      };
+
+      const onR1 = (e)=>{ e.preventDefault(); flash(e.currentTarget); r1++; onFirst('R1'); };
+      const onR3 = (e)=>{ e.preventDefault(); flash(e.currentTarget); r3++; onFirst('R3'); };
+      const onR1Click = (e)=>e.preventDefault();
+      const onR3Click = (e)=>e.preventDefault();
+
+      document.getElementById('r1').addEventListener('pointerdown', onR1, {passive:false});
+      document.getElementById('r1').addEventListener('click', onR1Click, {passive:false});
+      document.getElementById('r3').addEventListener('pointerdown', onR3, {passive:false});
+      document.getElementById('r3').addEventListener('click', onR3Click, {passive:false});
+
+      // Si no hay ninguna pulsación, terminar a los 4 s máximo (TEST)
+      maxTimer = setTimeout(()=>{ finish(); }, 60000);
+    });
+
+    html(`<div class="screen center"><div style="font-size:28px; font-style:italic">Recalibrando...<br><br>(No presiones nada)</div></div>`);
+    await sleep((0.5+Math.random()*1)*1000); // 0.5–1.5 s
+  }
+}
+
+// ------- Devaluación (SLIDERS 1–10) -------
+async function faseDevaluacion(){
+  const startCall=performance.now();
+  html(`<div class="screen center" style="flex-direction:column; gap:16px; text-align:center">
+    <div style="font-size:22px; max-width:900px">(Aviso) Llama al encargado ahora para continuar con la siguiente fase.<br><br>Espera su autorización antes de seguir.</div>
+    <button class="btn" id="go">Haz clic cuando el encargado esté presente</button>
+  </div>`); 
+  await buttonOnce('go'); 
+  const endCall=performance.now(); 
+  deval_rows.push({rut:RUT,momento:'llamado_encargado',tipo:'None',rating:'',rt:((endCall-startCall)/1000).toFixed(3)});
+
+  // Desglose de puntos por tipo (desde fase instrumental)
+  const puntos = { droga:0, comida:0, clip:0 };
+  for(const r of instr_rows){
+    if (r.rewarded == 1) {
+      if (r.reward_type === 'droga') puntos.droga++;
+      else if (r.reward_type === 'comida') puntos.comida++;
+      else if (r.reward_type === 'clip') puntos.clip++;
+    }
+  }
+  const totalRecompensas = puntos.droga + puntos.comida + puntos.clip;
+
+  html(`<div class="screen center" style="flex-direction:column; gap:16px; text-align:center">
+    <div style="font-size:22px; max-width:900px">
+      En este momento podrás consumir parte de las recompensas.<br><br>
+      <b>Total de puntos: ${totalRecompensas}</b><br>
+      <span class="small">
+        • ${CONDICION}: <b>${puntos.droga}</b><br>
+        • ${COMIDA}: <b>${puntos.comida}</b><br>
+        • Clip: <b>${puntos.clip}</b>
+      </span><br>
+      Luego evaluaremos tu deseo de seguir consumiendo.
+    </div>
+    <button class="btn" id="go2">Haz clic para continuar cuando termines</button>
+  </div>`); 
+  await buttonOnce('go2');
+
+  html(`<div class="screen center" style="flex-direction:column; gap:16px; text-align:center">
+    <div style="font-size:22px">Evalúa cuánto deseo tienes de seguir consumiendo cada recompensa.</div>
+    <button class="btn" id="go3">Toca para comenzar</button>
+  </div>`); 
+  await buttonOnce('go3');
+
+  const isCigar = CONDICION.toLowerCase().includes('cigarro');
+  const drugImgPath = await resolveImage(isCigar ? IMG_MAP.cigarro : IMG_MAP.cerveza);
+  const foodImgPath = await resolveImage(IMG_MAP[foodKey]);
+
+  const labels10des = [
+    "Nada de deseo","Muy poco deseo","Poco deseo","Algo de deseo","Deseo moderado",
+    "Bastante deseo","Mucho deseo","Muchísimo deseo","Deseo muy intenso","Deseo extremo"
+  ];
+
+  async function deseoSlider(question, imgPath, tipo){
+    const {value, rt} = await renderSlider({
+      title:question,
+      subtitle:`1 = ${labels10des[0]} · 10 = ${labels10des[9]}`,
+      min:1, max:10, start:1, labels:labels10des, confirmText:"Confirmar"
+    });
+    deval_rows.push({rut:RUT,momento:'unica',tipo, rating:value, rt:rt.toFixed(3)});
+    html(`<div class="screen center" style="flex-direction:column; gap:18px; text-align:center">
+      <div class="center" style="min-height:320px">${imgPath?`<img class='reward' src='${imgPath}'/>`:`<div class='cue' style='background:gray'></div>`}</div>
+      <div>Respuesta registrada.</div>
+    </div>`); 
+    await sleep(1000);
+  }
+
+  await deseoSlider(`¿Cuánto deseo tienes de seguir consumiendo ${CONDICION.toLowerCase()}?`, drugImgPath, 'droga');
+  await deseoSlider(`¿Cuánto deseo tienes de seguir consumiendo ${COMIDA}?`, foodImgPath, 'comida');
+}
+
+// ---------------- ZIP (JS puro, sin compresión) ----------------
+(function(){
+  const table = new Uint32Array(256).map((t, i) => {
+    let c = i;
+    for (let k=0;k<8;k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    return c >>> 0;
+  });
+  window.crc32 = function(arr){
+    let c = 0 ^ (-1);
+    for (let i=0;i<arr.length;i++) c = (c >>> 8) ^ table[(c ^ arr[i]) & 0xFF];
+    return (c ^ (-1)) >>> 0;
+  };
+})();
+function strToUint8(s){ return new TextEncoder().encode(s); }
+function writeUint16LE(v){ return new Uint8Array([v & 0xFF, (v>>8)&0xFF]); }
+function writeUint32LE(v){ return new Uint8Array([v & 0xFF, (v>>8)&0xFF, (v>>16)&0xFF, (v>>24)&0xFF]); }
+function dosTimeDate(date=new Date()){
+  const time = ((date.getHours())<<11) | ((date.getMinutes())<<5) | ((date.getSeconds()/2)|0);
+  const year = date.getFullYear() < 1980 ? 0 : date.getFullYear()-1980;
+  const dt = ((year)<<9) | ((date.getMonth()+1)<<5) | (date.getDate());
+  return {time, date:dt};
+}
+function concatUint8(chunks){
+  const len = chunks.reduce((a,c)=>a+c.length,0);
+  const out = new Uint8Array(len);
+  let off = 0;
+  for(const c of chunks){ out.set(c, off); off += c.length; }
+  return out;
+}
+function createZip(files){
+  const localParts=[], centralParts=[];
+  let offset = 0;
+  const {time, date} = dosTimeDate(new Date());
+
+  for(const f of files){
+    const nameBytes = strToUint8(f.name);
+    const content   = f.data;
+    const crc       = crc32(content);
+    const size      = content.length;
+
+    const localHeader = concatUint8([
+      writeUint32LE(0x04034b50),
+      writeUint16LE(20), writeUint16LE(0),
+      writeUint16LE(0),
+      writeUint16LE(time), writeUint16LE(date),
+      writeUint32LE(crc), writeUint32LE(size), writeUint32LE(size),
+      writeUint16LE(nameBytes.length), writeUint16LE(0),
+      nameBytes
+    ]);
+    const local = concatUint8([localHeader, content]);
+    localParts.push(local);
+
+    const central = concatUint8([
+      writeUint32LE(0x02014b50),
+      writeUint16LE(20), writeUint16LE(20),
+      writeUint16LE(0), writeUint16LE(0),
+      writeUint16LE(time), writeUint16LE(date),
+      writeUint32LE(crc), writeUint32LE(size), writeUint32LE(size),
+      writeUint16LE(nameBytes.length), writeUint16LE(0), writeUint16LE(0),
+      writeUint16LE(0), writeUint16LE(0), writeUint32LE(0),
+      writeUint32LE(offset),
+      nameBytes
+    ]);
+    centralParts.push(central);
+    offset += local.length;
+  }
+
+  const centralDir = concatUint8(centralParts);
+  const localAll   = concatUint8(localParts);
+  const eocd = concatUint8([
+    writeUint32LE(0x06054b50),
+    writeUint16LE(0), writeUint16LE(0),
+    writeUint16LE(files.length), writeUint16LE(files.length),
+    writeUint32LE(centralDir.length), writeUint32LE(localAll.length),
+    writeUint16LE(0)
+  ]);
+  const zipBytes = concatUint8([localAll, centralDir, eocd]);
+  return new Blob([zipBytes], {type:'application/zip'});
+}
+function triggerDownload(blob, filename){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+//------------------------------------------------------
+// Subida silenciosa al servidor
+//------------------------------------------------------
+async function subirAlServidor(zipBlob, zipName, carpeta){
+  try{
+    const fd = new FormData();
+    fd.append('folder', carpeta);
+    fd.append('zip', zipBlob, zipName);
+    const res = await fetch('save_data.php', { method:'POST', body: fd });
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json().catch(()=> ({}));
+    console.log('Servidor respondió:', json);
+    return true;
+  }catch(e){
+    console.error('Error subiendo al servidor:', e);
+    return false;
+  }
+}
+
+//------------------------------------------------------
+// Final: genera CSVs, descarga ZIP y lo sube (UI = solo gracias)
+//------------------------------------------------------
+function pantallaFinal(){
+  html(`<div class="center screen" style="flex-direction:column; gap:24px; text-align:center; padding:20px">
+    <h2>¡Gracias por participar!</h2>
+    <p class="note">Tu colaboración es muy importante para esta investigación.</p>
+  </div>`);
+
+  const files = [
+    {name:`pavloviana_${RUT}_${ts}.csv`, rows:pav_rows, header:['rut','trialIndex','tipo','cue_color','refuerzo_file','iti','t_cue_on','t_image_on','t_fix_on','t_trial_end']},
+    {name:`ratings_${RUT}_${ts}.csv`, rows:rate_rows, header:['rut','color','rating','rt']},
+    {name:`instrumental_${RUT}_${ts}.csv`, rows:instr_rows, header:['rut','trialIndex','stim_color','reward_type_expected','button_pressed','rewarded','reward_type','rt','eficacia']},
+    {name:`pit_${RUT}_${ts}.csv`, rows:pit_rows, header:['rut','trial','stim','EC_type','R1','R3','rt','first_button','timestamp']},
+    {name:`devaluacion_${RUT}_${ts}.csv`, rows:deval_rows, header:['rut','momento','tipo','rating','rt']},
+    {name:`pit_post_${RUT}_${ts}.csv`, rows:pitpost_rows, header:['rut','trial','stim','EC_type','R1','R3','rt','first_button','timestamp']}
+  ];
+
+  const entries = files.map(f=>{
+    const csv = [f.header.join(',')]
+      .concat(f.rows.map(r=>f.header.map(h=> (r[h] ?? '').toString().replace(/\n/g,' ')).join(',')))
+      .join('\n') + '\n';
+    return { name: f.name, data: new TextEncoder().encode(csv) };
+  });
+
+  const zipBlob = createZip(entries);
+  const zipName = `${RUT}_${ts}.zip`;
+  const carpeta = `${RUT}_${ts}`;
+
+  try { triggerDownload(zipBlob, zipName); } catch(e){ console.error('Descarga local falló:', e); }
+
+  subirAlServidor(zipBlob, zipName, carpeta).then(ok=>{
+    console.log(ok ? 'Subida OK' : 'Subida falló');
+  });
+}
+
+//------------------------------------------------------
+// MAIN
+//------------------------------------------------------
+(async function main(){
+  html(`<div class="screen center" style="flex-direction:column; gap:16px; text-align:center">
+    <div style="font-size:26px">A continuación observa la pantalla.</div>
+    <button class="btn" id="start">Toca la pantalla para comenzar</button>
+  </div>`); 
+  await buttonOnce('start');
+
+  const el = document.documentElement;
+  if (el.requestFullscreen) el.requestFullscreen();
+  else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+  else if (el.msRequestFullscreen) el.msRequestFullscreen();
+
+  RUT = await uiRutPrompt(); 
+  await loadParticipantes();
+
+  await instruccionesPavloviana();
+  await fasePavloviana(); html(`<div class="screen center"><div>Cargando la siguiente parte...</div></div>`); await sleep(3000);
+  await faseRatingColores(); html(`<div class="screen center"><div>Cargando la siguiente fase...</div></div>`); await sleep(3000);
+  await faseInstrumental(); html(`<div class="screen center"><div>Cargando la siguiente fase...</div></div>`); await sleep(3000);
+  await fasePIT(1, pit_rows); html(`<div class="screen center"><div>Cargando la siguiente fase...</div></div>`); await sleep(3000);
+  await faseDevaluacion(); html(`<div class="screen center"><div>Cargando la siguiente fase...</div></div>`); await sleep(3000);
+  await fasePIT(1, pitpost_rows);
+
+  pantallaFinal();
+})();
+</script>
+</body>
+</html>
