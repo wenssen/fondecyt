@@ -1,178 +1,188 @@
-# Proyecto FONDECYT --- Hábitos y Consumos
 
-Repositorio creado para gestionar y documentar el proyecto **"Hábitos y
-Consumos"**, que forma parte de las investigaciones desarrolladas en el
-marco del **FONDECYT de Iniciación**.
+# Proyecto FONDECYT — Hábitos y Consos
 
-------------------------------------------------------------------------
+Repositorio creado para gestionar y documentar el proyecto **"Hábitos y Consumos"**, que forma parte de las investigaciones desarrolladas en el marco del **FONDECYT de Iniciación**.
+
+---
 
 ## Descripción general
 
-El proyecto busca comprender la relación entre **estímulos condicionados
-(EC)** y **respuestas conductuales** vinculadas a distintos tipos de
-consumo, utilizando un **paradigma pavloviano-instrumental (PIT)**
-adaptado para ejecución en entorno web.
+El proyecto busca comprender la relación entre **estímulos condicionados (EC)** y **respuestas conductuales** vinculadas a distintos tipos de consumo, utilizando un **paradigma pavloviano-instrumental (PIT)** adaptado para ejecución en entorno web.
 
-Se utilizan estímulos visuales (colores, imágenes de productos)
-asociados con recompensas (por ejemplo, alimentos o drogas legales),
-midiendo el aprendizaje asociativo y la influencia de estos estímulos
-sobre la ejecución instrumental.
+Se utilizan estímulos visuales (colores, imágenes de productos) asociados con recompensas (por ejemplo, alimentos o drogas legales), midiendo el aprendizaje asociativo y la influencia de estos estímulos sobre la ejecución instrumental.
 
-------------------------------------------------------------------------
+---
 
 ## Objetivos
 
 ### Objetivo general
-
-Evaluar el impacto del aprendizaje pavloviano en la conducta
-instrumental relacionada con estímulos de consumo (comida, alcohol,
-tabaco, etc.), bajo diferentes condiciones experimentales.
+Evaluar el impacto del aprendizaje pavloviano en la conducta instrumental relacionada con estímulos de consumo (comida, alcohol, tabaco, etc.), bajo diferentes condiciones experimentales.
 
 ### Objetivos específicos
+1. Implementar un experimento pavloviano–instrumental web completamente funcional.
+2. Analizar los efectos diferenciales de los estímulos asociados (EC) en la conducta de elección.
+3. Evaluar la persistencia del aprendizaje tras fases de devaluación.
+4. Comparar condiciones experimentales entre grupos de consumidores (p. ej., fumadores vs no fumadores).
 
-1.  Implementar un experimento pavloviano--instrumental web
-    completamente funcional.
-2.  Analizar los efectos diferenciales de los estímulos asociados (EC)
-    en la conducta de elección.
-3.  Evaluar la persistencia del aprendizaje tras fases de devaluación.
-4.  Comparar condiciones experimentales entre grupos de consumidores
-    (p. ej., fumadores vs no fumadores).
-
-------------------------------------------------------------------------
-
-## Arquitectura técnica
-
-### Estructura general del experimento
-
-  -----------------------------------------------------------------------
-  Fase                  Descripción
-  --------------------- -------------------------------------------------
-  Instrucciones         Presentación de EC (colores) y reforzadores
-  Pavlovianas           asociados
-
-  Fase Pavloviana       Asociación color--recompensa
-
-  Rating de colores     Evaluación subjetiva de los EC
-
-  Fase Instrumental     Aprendizaje acción--recompensa (R1--R3)
-
-  PIT                   Evaluación del efecto del EC sobre la acción
-
-  Devaluación           Manipulación de la motivación / deseo
-
-  PIT post              Reevaluación posterior a la devaluación
-  -----------------------------------------------------------------------
-
-------------------------------------------------------------------------
+---
 
 ## Implementación
 
-El experimento está desarrollado en **HTML + JavaScript puro**, sin
-dependencias externas, para facilitar su ejecución tanto en laboratorio
-como en campo.
+El experimento está desarrollado en **HTML + JavaScript puro**, sin dependencias externas, para facilitar su ejecución tanto en laboratorio como en campo (tablets o navegadores modernos).
 
 ### Archivos principales
 
--   `index.html`: interfaz principal del experimento.\
--   `img/`: carpeta con imágenes de reforzadores.\
--   `participantes.csv`: archivo con datos base (RUT, condición,
-    comida).\
--   `save_data.php`: script para guardar resultados en el servidor.\
--   `Spec sheet experimentos - Objetivo 1.docx`: especificaciones
-    metodológicas.\
--   `Pantallas de Fases del experimento.pdf`: diseño visual de las
-    fases.
+- `index.html`: interfaz principal del experimento.  
+- `img/`: carpeta con imágenes de reforzadores (cigarro, cerveza, snacks, etc.).  
+- `participantes.csv`: archivo con datos base (RUT, condición, comida).  
+- `save_data.php`: script para guardar resultados en el servidor.  
+- `Spec sheet experimentos - Objetivo 1.docx`: especificaciones metodológicas.  
+- `Pantallas de Fases del experimento.pdf`: diseño visual de las fases.
 
-------------------------------------------------------------------------
+---
 
-## Parámetros ajustables
+## Parámetros actuales del experimento (versión TEST RÁPIDO)
 
-Dentro del código (`index.html`), se definen los parámetros clave:
+Los parámetros no están centralizados en constantes, sino definidos dentro de cada fase. A continuación se documentan **tal como están en el código** que me compartiste.
 
-``` js
-const N_TRIALS_PAVLOVIANA = 36;
-const N_TRIALS_INSTRUMENTAL = 36;
-const PIT_WINDOW_MS = 4000;
-const PIT_NO_RESP_MS = 60000;
+### 1. Fase Pavloviana (`fasePavloviana()`)
+
+```js
+const trial_types = shuffle([
+  ...Array(1).fill('droga'),
+  ...Array(1).fill('comida'),
+  ...Array(1).fill('clip'),
+  ...Array(1).fill('neutro'),
+]);
 ```
 
-Para realizar pruebas rápidas se pueden reducir temporalmente:
+- Ensayos por tipo: **1** (total = 4 ensayos).  
+- Duración EC (cuadrado de color): `await sleep(1000);` → **1 s**.  
+- Duración refuerzo (imagen): `await sleep(300);` → **0,3 s**.  
+- ITI (punto de fijación): `choice([1,2]) * 1000` → **1–2 s**.
 
-``` js
-const N_TRIALS_PAVLOVIANA = 4;
-const N_TRIALS_INSTRUMENTAL = 6;
-const PIT_WINDOW_MS = 2000;
+### 2. Rating de colores (`faseRatingColores()`)
+
+- Escala de 1 a 5.  
+- Se evalúan 4 colores: azul, amarillo, rojo y verde.  
+- Pausa después de cada respuesta: `await sleep(1000);` → **1 s**.
+
+### 3. Fase Instrumental (`faseInstrumental()`)
+
+```js
+const n_trials = 6;   // TEST: 6 ensayos totales
+const prob = 0.5;
 ```
 
-------------------------------------------------------------------------
+- Ensayos totales: **6**.  
+- Probabilidad de recompensa si se presiona la tecla “correcta”: **0,5 (50%)**.  
+- Fijación previa (`+`): `await sleep(1000);` → **1 s**.  
+- Duración del mensaje de feedback (ganaste / no ganaste): `await sleep(1000);` → **1 s**.  
 
-## Recolección de datos
+Mapping de botones a tipo de recompensa:
 
-El experimento genera múltiples CSV:
+```js
+const map = {1:'droga', 2:'comida', 3:'clip'};
+```
 
-  Archivo                Contenido
-  ---------------------- ---------------------------
-  `pavloviana_*.csv`     Exposición EC--refuerzo
-  `ratings_*.csv`        Calificaciones subjetivas
-  `instrumental_*.csv`   Respuestas y eficacia
-  `pit_*.csv`            PIT pre--devaluación
-  `devaluacion_*.csv`    Deseo post-devaluación
-  `pit_post_*.csv`       PIT post--devaluación
+### 4. Fase PIT y PIT Post (`fasePIT(reps, collector)`)
 
-Todos se empaquetan automáticamente en un `.zip` y se descargan
-localmente, además de enviarse al servidor.
+En el `main()` se llama como:
 
-------------------------------------------------------------------------
+```js
+await fasePIT(1, pit_rows);      // PIT
+...
+await fasePIT(1, pitpost_rows);  // PIT post
+```
 
-## Control de participantes
+Eso implica:
 
-Se utiliza `RUT` como identificador.\
-El sistema lee `participantes.csv` para determinar:
+- `reps = 1` → **1 ensayo por estímulo S1, S2, S3** (total = 3 ensayos por fase).  
 
--   Condición experimental (ej. Cigarro / Cerveza)
--   Recompensa alimentaria asignada
+Dentro de la función:
 
-Ejemplo:
+```js
+await sleep(choice([1,2])*1000);  // fijación
+...
+windowTimer = setTimeout(finish, 2000); // ventana de 2 s
+...
+maxTimer = setTimeout(()=>{ finish(); }, 60000);
+```
 
-    RUT,Condicion,Comida
-    12345678-9,Cigarro,KUKY
-    98765432-1,Cerveza,Ramitas
+Parámetros efectivos:
 
-------------------------------------------------------------------------
+- Fijación (`+`): **1–2 s**.  
+- Ventana de conteo: **2 s desde la primera pulsación de R1/R3**.  
+- Corte máximo si no hay respuesta: **60 s** (después de eso el ensayo termina automáticamente).  
+- Pantalla de “Recalibrando”: `0.5–1.5 s`.
 
-## Requisitos
+Durante esta fase **solo están disponibles R1 y R3**; se cuenta el número de pulsaciones por estímulo y la primera respuesta (RT, botón).
 
--   Navegador moderno\
--   Permiso de pantalla completa\
--   Carpeta `/img` con estímulos disponible\
--   Servidor con `save_data.php` activo (opcional)
+### 5. Devaluación (`faseDevaluacion()`)
 
-------------------------------------------------------------------------
+- Se calcula el total de puntos por tipo de recompensa a partir de `instr_rows`.  
+- Se muestra un resumen al participante y luego se solicitan ratings de deseo (escala 1–10) para:
+  - `CONDICION` (ej. Cigarro o Cerveza).  
+  - `COMIDA` (ej. KUKY, Ramitas, etc.).  
+- Pausa tras cada rating: `await sleep(1000);` → **1 s**.
 
-## Estructura del repositorio
+---
 
-    fondecyt/
-    │
-    ├── index.html
-    ├── save_data.php
-    ├── participantes.csv
-    ├── img/
-    │   ├── cigarro.png
-    │   ├── cerveza.png
-    │   └── ...
-    │
-    ├── documentos/
-    │   ├── Spec sheet experimentos - Objetivo 1.docx
-    │   └── Pantallas de Fases del experimento.pdf
-    │
-    └── README.md
+## Salida de datos
 
-------------------------------------------------------------------------
+El experimento genera múltiples CSV por participante, identificados por `RUT` y `timestamp`:
+
+- `pavloviana_RUT_timestamp.csv`  
+- `ratings_RUT_timestamp.csv`  
+- `instrumental_RUT_timestamp.csv`  
+- `pit_RUT_timestamp.csv`  
+- `devaluacion_RUT_timestamp.csv`  
+- `pit_post_RUT_timestamp.csv`  
+
+Todos se empaquetan en un archivo `.zip` y:
+
+1. Se descargan localmente en el dispositivo del participante.  
+2. Se envían al servidor mediante `save_data.php`.
+
+---
+
+## Identificación de participantes
+
+- El participante ingresa su **RUT sin puntos y con guión**.  
+- El código lo normaliza y busca en `participantes.csv`:
+  - Condición experimental (`Condicion`).
+  - Tipo de comida asociada (`Comida`).
+
+Si el RUT no está en el archivo, se utilizan valores por defecto:
+- `CONDICION = "Cigarro"`
+- `COMIDA = "KUKY"`
+
+---
+
+## Estructura sugerida del repositorio
+
+```text
+fondecyt/
+│
+├── index.html
+├── save_data.php
+├── participantes.csv
+├── img/
+│   ├── cigarro.png
+│   ├── cerveza.png
+│   └── ...
+│
+├── documentos/
+│   ├── Spec sheet experimentos - Objetivo 1.docx
+│   └── Pantallas de Fases del experimento.pdf
+│
+└── README.md
+```
+
+---
 
 ## Créditos
 
-**Autor:** Edgar Alejandro Santana Hernadez\
-**Proyecto:** FONDECYT --- Hábitos y Consumos\
-**Versión:** v1.0 (2025)
-
-------------------------------------------------------------------------
+**Autor:** Edgar Alejandro Santana  
+**Proyecto:** FONDECYT — Hábitos y Consumos  
+**Versión:** v1.1 (modo TEST rápido documentado)
