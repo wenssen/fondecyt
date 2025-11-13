@@ -1,4 +1,4 @@
-# 🧠 Proyecto FONDECYT --- Hábitos y Consumos
+# Proyecto FONDECYT --- Hábitos y Consumos
 
 Repositorio creado para gestionar y documentar el proyecto **"Hábitos y
 Consumos"**, que forma parte de las investigaciones desarrolladas en el
@@ -6,7 +6,7 @@ marco del **FONDECYT de Iniciación**.
 
 ------------------------------------------------------------------------
 
-## 📋 Descripción general
+## Descripción general
 
 El proyecto busca comprender la relación entre **estímulos condicionados
 (EC)** y **respuestas conductuales** vinculadas a distintos tipos de
@@ -20,7 +20,7 @@ sobre la ejecución instrumental.
 
 ------------------------------------------------------------------------
 
-## 🎯 Objetivos
+## Objetivos
 
 ### Objetivo general
 
@@ -40,7 +40,7 @@ tabaco, etc.), bajo diferentes condiciones experimentales.
 
 ------------------------------------------------------------------------
 
-## ⚙️ Arquitectura técnica
+## Arquitectura técnica
 
 ### Estructura general del experimento
 
@@ -65,7 +65,7 @@ tabaco, etc.), bajo diferentes condiciones experimentales.
 
 ------------------------------------------------------------------------
 
-## 💻 Implementación
+## Implementación
 
 El experimento está desarrollado en **HTML + JavaScript puro**, sin
 dependencias externas, para facilitar su ejecución tanto en laboratorio
@@ -85,7 +85,7 @@ como en campo.
 
 ------------------------------------------------------------------------
 
-## 🧩 Parámetros ajustables
+## Parámetros ajustables
 
 Dentro del código (`index.html`), se definen los parámetros clave:
 
@@ -106,7 +106,7 @@ const PIT_WINDOW_MS = 2000;
 
 ------------------------------------------------------------------------
 
-## 🧪 Recolección de datos
+## Recolección de datos
 
 El experimento genera múltiples CSV:
 
@@ -124,7 +124,7 @@ localmente, además de enviarse al servidor.
 
 ------------------------------------------------------------------------
 
-## 🔒 Control de participantes
+## Control de participantes
 
 Se utiliza `RUT` como identificador.\
 El sistema lee `participantes.csv` para determinar:
@@ -140,7 +140,7 @@ Ejemplo:
 
 ------------------------------------------------------------------------
 
-## 🧰 Requisitos
+## Requisitos
 
 -   Navegador moderno\
 -   Permiso de pantalla completa\
@@ -149,7 +149,7 @@ Ejemplo:
 
 ------------------------------------------------------------------------
 
-## 📁 Estructura del repositorio
+## Estructura del repositorio
 
     fondecyt/
     │
@@ -169,7 +169,7 @@ Ejemplo:
 
 ------------------------------------------------------------------------
 
-## 🧠 Créditos
+## Créditos
 
 **Autor:** Edgar Alejandro Santana\
 **Proyecto:** FONDECYT --- Hábitos y Consumos\
