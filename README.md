@@ -171,7 +171,7 @@ Ejemplo:
 
 ## Créditos
 
-**Autor:** Edgar Alejandro Santana\
+**Autor:** Edgar Alejandro Santana Hernadez\
 **Proyecto:** FONDECYT --- Hábitos y Consumos\
 **Versión:** v1.0 (2025)
 
