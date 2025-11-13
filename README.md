@@ -1,5 +1,5 @@
 
-# Proyecto FONDECYT — Hábitos y Consos
+# Proyecto FONDECYT — Hábitos y ConsUMOS
 
 Repositorio creado para gestionar y documentar el proyecto **"Hábitos y Consumos"**, que forma parte de las investigaciones desarrolladas en el marco del **FONDECYT de Iniciación**.
 
